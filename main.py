@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Body
 from pymongo import MongoClient
 from bson import ObjectId
 import cloudinary
@@ -8,6 +8,7 @@ import os
 import random
 import string
 import uuid
+from typing import Optional
 
 #load env variables
 load_dotenv()
@@ -48,7 +49,14 @@ def movie_serializer(movie) -> dict:
         "genres": movie.get("genres"),
         "release_date": movie.get("release_date"),
         "duration": movie.get("duration"),
-        "trailers": []
+        "trailers": [
+             {
+                  "trailer_name": t.get("trailer_name"),
+                  "thumbnail_url": t.get("thumbnail_url"),
+                  "video_url": t.get("video_url")
+             }
+             for t in movie.get("trailers", [])
+        ]
     }
 
  #add movies   
@@ -128,13 +136,147 @@ async def add_trailer(
      except Exception as e:
           raise HTTPException(status_code=500, detail=str(e))
      
-
+#show movie  details
 @app.get("/movies")
 def get_movies():
      movies = list(collection.find())
      return [movie_serializer(m) for m in movies]
      
+#update only movie form type data   
+@app.patch("/movies/{movie_id}")
+async def update_movie(
+     movie_id: str,
+     update_data: dict = Body(...)
+):
+     
+     movie = collection.find_one({"movie_id": movie_id})
+     if  not movie:
+          raise HTTPException(status_code=404, detail="Movie not found")
+     
+     allowed_fields = {
+          "title",
+          "description",
+          "directors",
+          "writers",
+          "genres",
+          "release_date",
+          "duration",
+          "trailer_name"
+     }
+     
+     clean_update = {k: v for k, v in update_data.items() if k in allowed_fields}
+
+     if not clean_update:
+          raise HTTPException(status_code=400, detail="No valid fields provided")
+     
+     if "trailer_name" in clean_update:
+        trailers = movie.get("trailers", [])
+        if trailers:
+            trailers[0]["trailer_name"] = clean_update.pop("trailer_name")
+            clean_update["trailers"] = trailers
+        else:
+            clean_update["trailers"] = [{"trailer_name": update_data["trailer_name"]}]
+     
+     collection.update_one({"movie_id": movie_id}, {"$set": update_data})
+
+     return {"message": f"Movie {movie_id} text fileds updated successfully"}     
+
+
+#update movie images
+@app.patch("/movies/{movie_id}/images")
+async def update_movie_images(
+     movie_id: str,
+     image1: UploadFile = File(None),
+     image2: UploadFile = File(None),
+):
+     movie = collection.find_one({"movie_id": movie_id})
+     if not movie:
+          raise HTTPException(status_code=404, detail="Movie not found")
+     
+     update_data = {}
+
+     if image1:
+          if movie.get("image1_url"):
+               public_id = movie["image1_url"].split("/")[-1].split(".")[0]
+               cloudinary.uploader.destroy(public_id, resource_type="image")
+          
+          upload_result = cloudinary.uploader.upload(image1.file, resource_type="image", folder="movie_images")
+          update_data["image1_url"] = upload_result["secure_url"]
+
+     if image2:
+          if movie.get("image2_url"):
+               public_id = movie["image2_url"].split("/")[-1].split(".")[0]
+               cloudinary.uploader.destroy(public_id, resource_type="image")
+
+          upload_result = cloudinary.uploader.upload(image2.file, resource_type="image", folder="movie_images")
+          update_data["image2_url"] = upload_result["secure_url"]
+     
+     if not update_data:
+          raise HTTPException(status_code=400, detail="No images provided")
+     
+     collection.update_one({"movie_id": movie_id}, {"$set": update_data})
+
+     return {"message": "Image(s) updated successfully", "updated": update_data}
      
 
+#update trailer media
+@app.patch("/movies/{movie_id}/trailer")
+async def update_trailers(
+     movie_id: str,
+     trailer_thumbnail: Optional[UploadFile] = File(None),
+     trailer_video: Optional[UploadFile] = File(None)
+):
+     
+     movie = collection.find_one({"movie_id": movie_id})
+     if not movie:
+          raise HTTPException(status_code=404,  detail="Movie not found")
+     
+     trailers = movie.get("trailers", [])
+     if not trailers:
+          raise HTTPException(status_code=400, detail="No trailer found")
+     
+     trailer = trailers[0]
+
+     update_data = {}
+
+     if trailer_thumbnail:
+          if trailer.get("thumbnail_url"):
+               public_id = trailer["thumbnail_url"].split("/")[-1].split(".")[0]
+               cloudinary.uploader.destroy(public_id, resource_type="image")
+
+          thumb_upload = cloudinary.uploader.upload(
+               trailer_thumbnail.file,
+               resource_type="image",
+               folder="trailer_thumbnails"
+          )
+          trailer["thumbnail_url"] = thumb_upload["secure_url"]
+
+     if trailer_video:
+          if trailer.get("video_url"):
+               public_id = trailer["video_url"].split("/")[-1].split(".")[0]
+               cloudinary.uploader.destroy(public_id, resource_type="video")
+          
+          video_upload = cloudinary.uploader.upload(
+               trailer_video.file,
+               resource_type="video",
+               folder="trailer_videos"
+          )
+          trailer["video_url"] = video_upload["secure_url"]
+     
+     update_data["trailers"] = trailers
+
+     collection.update_one(
+          {"movie_id": movie_id},
+          {"$set": update_data}
+     )
+     
+     return {
+          "message": "Trailer updated successfully",
+          "updated_trailer": trailer
+     }
+
+
+
+     
 
           
