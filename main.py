@@ -20,6 +20,17 @@ CLOUD_API_SECRET = os.getenv("CLOUD_API_SECRET")
 
 app = FastAPI()
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or ["http://localhost:3000"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 # MongoDB connection
 client = MongoClient(MONGO_URI)
 db = client["movie_db"]
@@ -275,8 +286,29 @@ async def update_trailers(
           "updated_trailer": trailer
      }
 
-
-
+@app.delete("/movies/{movie_id}")
+async def delete_movie(movie_id: str):
+     movie = collection.find_one({"movie_id": movie_id})
+     if not movie:
+          raise HTTPException(status_code=404, detail="Movie not found")
      
+     result =collection.delete_one({"movie_id": movie_id})
+     if result.deleted_count == 1:
+          return {"message": f"Movie {movie_id} deleted successfully"}
+     raise HTTPException(status_code=500, detail="Failed to delete")
+     
+
+@app.get("/movies/search")
+def search_movies(query: str):
+    movies = list(collection.find({
+        "$or": [
+            {"title": {"$regex": query, "$options": "i"}},
+            {"description": {"$regex": query, "$options": "i"}},
+            {"trailers.trailer_name": {"$regex": query, "$options": "i"}}
+        ]
+    }).limit(10)) #limit to 10 results
+
+    return [movie_serializer(m) for m in movies]
+
 
           
