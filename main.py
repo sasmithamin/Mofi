@@ -9,6 +9,7 @@ import random
 import string
 import uuid
 from typing import Optional
+from datetime import datetime
 
 #load env variables
 load_dotenv()
@@ -35,6 +36,7 @@ app.add_middleware(
 client = MongoClient(MONGO_URI)
 db = client["movie_db"]
 collection = db["movies"]
+search_logs = db["search_logs"]
 
 # Cloudinary setup
 cloudinary.config(
@@ -300,6 +302,13 @@ async def delete_movie(movie_id: str):
 
 @app.get("/movies/search")
 def search_movies(query: str):
+    
+    if query.strip():
+         search_logs.insert_one({
+              "query": query.lower(),
+              "timestamp": datetime.utcnow()
+         })
+
     movies = list(collection.find({
         "$or": [
             {"title": {"$regex": query, "$options": "i"}},
@@ -309,6 +318,36 @@ def search_movies(query: str):
     }).limit(10)) #limit to 10 results
 
     return [movie_serializer(m) for m in movies]
+
+
+@app.get("/movies/most-searched")
+def most_searched_movies(limit: int = 10):
+    pipeline = [
+        {"$group": {"_id": "$query", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": limit}
+    ]
+
+    keyword_counts = list(search_logs.aggregate(pipeline))
+
+    result = []
+    for item in keyword_counts:
+        keyword = item["_id"]
+        count = item["count"]
+
+        movies = list(collection.find({
+            "title": {"$regex": keyword, "$options": "i"}
+        }))
+
+        for m in movies:
+            result.append({
+                "keyword": keyword,
+                "count": count,
+                "movies": movie_serializer(m)
+            })
+
+    return result
+
 
 
           
