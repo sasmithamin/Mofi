@@ -3,8 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from utils.cloudinary import cloudinary
 from controllers.movie_controller import router as movie_router
+from controllers.trailer_controller import router as trailer_router
 
 load_dotenv()
+
 
 app = FastAPI(
     title="Movie API",
@@ -21,6 +23,7 @@ app.add_middleware(
 )
 
 app.include_router(movie_router, prefix="/movies", tags=["Movies"])
+app.include_router(trailer_router, prefix="/trailers", tags=["Trailers"])
 
 @app.get("/")
 def home():

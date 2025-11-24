@@ -20,3 +20,11 @@ def upload_image(upload_file, folder: str):
         resource_type="image"
     )["secure_url"]
 
+def upload_video(upload_file, folder: str):
+    file_bytes = upload_file.file.read()
+    result = cloudinary.uploader.upload(
+        file_bytes,
+        folder=folder,
+        resource_type="video"
+    )
+    return result.get("secure_url")

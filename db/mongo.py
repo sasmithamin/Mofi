@@ -18,4 +18,7 @@ if not MONGO_DB_NAME:
 client = AsyncIOMotorClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
 
+movies_collection = db["movies"]
+trailers_collection = db["trailers"]
+
 print("DB NAME:", MONGO_DB_NAME)
