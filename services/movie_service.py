@@ -8,6 +8,7 @@ from bson import ObjectId
 def serialize_movie(movie):
     return {
         "movie_id": movie["movie_id"],
+        "user_id": movie["user_id"],
         "title": movie["title"],
         "description": movie["description"],
         "directors": movie["directors"],
@@ -76,3 +77,11 @@ class MovieService:
     async def delete_movie(movie_id: str) -> bool:
         result = await db.movies.delete_one({"movie_id": movie_id})
         return result.deleted_count == 1
+    
+    @staticmethod
+    async def get_movies_by_user(user_id: str) -> list:
+        movies = []
+        async for movie in db.movies.find({"user_id": user_id}):
+            movies.append(serialize_movie(movie))
+        return movies
+

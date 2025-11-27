@@ -1,50 +1,70 @@
-from typing import List, Optional
-from schemas import TrailerCreate, TrailerUpdate, Trailer
+import uuid
+from typing import Optional, List
 from bson import ObjectId
-from db.mongo import db  
+from db.mongo import db
+from schemas import TrailerCreate, TrailerUpdate
 
 trailer_collection = db["trailers"]
+
+
+def serialize_trailer(tr):
+    return {
+        "trailer_id": tr["trailer_id"],
+        "movie_id": tr["movie_id"],
+        "trailer_name": tr["trailer_name"],
+        "thumbnail_url": tr.get("thumbnail_url"),
+        "video_url": tr.get("video_url"),
+    }
+
 
 class TrailerService:
 
     @staticmethod
-    async def create_trailer(trailer_data: TrailerCreate) -> Trailer:
-        trailer_dict = trailer_data.dict()
-        result = await trailer_collection.insert_one(trailer_dict)
+    async def create_trailer(data: TrailerCreate):
+        trailer_dict = data.model_dump()
+        trailer_dict["trailer_id"] = str(uuid.uuid4())   # <-- custom ID like movies
 
-        trailer_dict["trailer_id"] = str(result.inserted_id)
-        return Trailer(**trailer_dict)
+        await trailer_collection.insert_one(trailer_dict)
+
+        return serialize_trailer(trailer_dict)
 
     @staticmethod
-    async def get_trailers(movie_id: str) -> List[Trailer]:
-        cursor = trailer_collection.find({"movie_id": movie_id})
+    async def get_trailer_by_id(trailer_id: str):
+        trailer = await trailer_collection.find_one({"trailer_id": trailer_id})
+        if trailer:
+            return serialize_trailer(trailer)
+        return None
+
+    @staticmethod
+    async def get_all_trailers():
         trailers = []
-
-        async for doc in cursor:
-            doc["trailer_id"] = str(doc["_id"])
-            doc.pop("_id", None)
-            trailers.append(Trailer(**doc))
-
+        async for tr in trailer_collection.find():
+            trailers.append(serialize_trailer(tr))
         return trailers
 
     @staticmethod
-    async def update_trailer(trailer_id: str, update_data: TrailerUpdate) -> Optional[Trailer]:
-        update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    async def update_trailer(trailer_id: str, update_data: TrailerUpdate):
+        update_fields = {
+            key: value
+            for key, value in update_data.model_dump().items()
+            if value is not None
+        }
 
-        result = await trailer_collection.update_one(
-            {"_id": ObjectId(trailer_id)},
-            {"$set": update_dict}
-        )
-
-        if result.matched_count == 0:
+        if not update_fields:
             return None
 
-        updated = await trailer_collection.find_one({"_id": ObjectId(trailer_id)})
-        updated["trailer_id"] = str(updated["_id"])
-        updated.pop("_id", None)
-        return Trailer(**updated)
+        result = await trailer_collection.update_one(
+            {"trailer_id": trailer_id},
+            {"$set": update_fields}
+        )
+
+        if result.modified_count == 0:
+            return None
+
+        updated = await trailer_collection.find_one({"trailer_id": trailer_id})
+        return serialize_trailer(updated)
 
     @staticmethod
     async def delete_trailer(trailer_id: str) -> bool:
-        result = await trailer_collection.delete_one({"_id": ObjectId(trailer_id)})
-        return result.deleted_count > 0
+        result = await trailer_collection.delete_one({"trailer_id": trailer_id})
+        return result.deleted_count == 1

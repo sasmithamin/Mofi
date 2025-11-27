@@ -8,6 +8,7 @@ router = APIRouter()
 
 @router.post("/", response_model=dict)
 async def create_movie(
+    user_id: str =  Form(...),
     title: str = Form(...),
     description: str = Form(...),
     directors: str = Form(...),
@@ -23,6 +24,7 @@ async def create_movie(
     img2_url = upload_image(image2, "movie_db/movies")
 
     movie_data = MovieCreate(
+        user_id=user_id,
         title=title,
         description=description,
         directors=directors.split(","), 
@@ -51,6 +53,7 @@ async def get_movie(movie_id: str):
 @router.put("/{movie_id}", response_model=dict)
 async def update_movie(
     movie_id: str,
+    user_id:Optional[str] = Form(None),
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     directors: Optional[str] = Form(None),
@@ -70,6 +73,7 @@ async def update_movie(
     if genres: update_data.genres = genres.split(",")
     if release_date: update_data.release_date = release_date
     if duration: update_data.duration = duration
+    if user_id: update_data.user_id = user_id
 
     if image1:
         update_data.image1 = await upload_image(image1, "movie_db/movies")
@@ -90,4 +94,7 @@ async def delete_movie(movie_id: str):
         raise HTTPException(status_code=404, detail="Movie not found")
     return {"message": "Movie deleted successfully"}
 
+@router.get("/user/{user_id}", response_model=list)
+async def get_movies_by_user(user_id: str):
+    return await MovieService.get_movies_by_user(user_id)
 

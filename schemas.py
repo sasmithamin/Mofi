@@ -11,6 +11,7 @@ class MovieBase(BaseModel):
     duration: str
 
 class MovieCreate(MovieBase):
+    user_id: str
     image1: str
     image2: str
 
@@ -22,11 +23,13 @@ class MovieUpdate(BaseModel):
     genres: Optional[List[str]] = None
     release_date: Optional[int] = None
     duration: Optional[str] = None
+    user_id: Optional[str] = None
     image1: Optional[str] = None
     image2: Optional[str] = None
 
 class Movie(MovieBase):
     movie_id: str
+    user_id: str
     image1: str
     image2: str
 
