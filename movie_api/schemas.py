@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 class MovieBase(BaseModel):
+    imdbID: str
+    type: str
     title: str
     description: str
     directors: List[str]
@@ -16,6 +18,8 @@ class MovieCreate(MovieBase):
     image2: str
 
 class MovieUpdate(BaseModel):
+    imdbID: Optional[str] = None
+    type: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
     directors: Optional[List[str]] = None

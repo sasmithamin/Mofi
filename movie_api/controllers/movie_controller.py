@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form,  HTTPException
-from services.movie_service import MovieService
-from utils.cloudinary import upload_image
-from schemas import MovieCreate, MovieUpdate
+from movie_api.services.movie_service import MovieService
+from movie_api.utils.cloudinary import upload_image
+from movie_api.schemas import MovieCreate, MovieUpdate
 from typing import List, Optional
 
 router = APIRouter()
@@ -9,6 +9,8 @@ router = APIRouter()
 @router.post("/", response_model=dict)
 async def create_movie(
     user_id: str =  Form(...),
+    imdbID: str = Form(...),
+    type: str = Form(...),
     title: str = Form(...),
     description: str = Form(...),
     directors: str = Form(...),
@@ -25,6 +27,8 @@ async def create_movie(
 
     movie_data = MovieCreate(
         user_id=user_id,
+        imdbID=imdbID,
+        type=type,
         title=title,
         description=description,
         directors=directors.split(","), 

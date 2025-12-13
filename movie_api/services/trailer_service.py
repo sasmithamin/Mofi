@@ -1,8 +1,8 @@
 import uuid
 from typing import Optional, List
 from bson import ObjectId
-from db.mongo import db
-from schemas import TrailerCreate, TrailerUpdate
+from movie_api.db.mongo import db
+from movie_api.schemas import TrailerCreate, TrailerUpdate
 
 trailer_collection = db["trailers"]
 
@@ -34,6 +34,11 @@ class TrailerService:
         if trailer:
             return serialize_trailer(trailer)
         return None
+    
+    @staticmethod
+    async def get_trailers_by_movie_id(movie_id: str):
+        trailers = await trailer_collection.find({"movie_id": movie_id}).to_list(None)
+        return [await TrailerService.to_trailer_dict(t) for t in trailers]
 
     @staticmethod
     async def get_all_trailers():

@@ -1,6 +1,6 @@
-from db.mongo import db
+from movie_api.db.mongo import db
 import uuid
-from schemas import MovieCreate, MovieUpdate
+from movie_api.schemas import MovieCreate, MovieUpdate
 from typing import Optional
 from bson import ObjectId
 
@@ -9,6 +9,8 @@ def serialize_movie(movie):
     return {
         "movie_id": movie["movie_id"],
         "user_id": movie["user_id"],
+        "imdbID": movie["imdbID"],
+        "type": movie["type"],
         "title": movie["title"],
         "description": movie["description"],
         "directors": movie["directors"],
@@ -25,6 +27,13 @@ class MovieService:
     @staticmethod
     async def create_movie(movie_data: MovieCreate) -> dict:
         movie_dict = movie_data.model_dump()
+
+        existing = await db.movies.find_one(
+            {"imdbID": movie_dict["imdbID"]}
+        )
+        if existing:
+            raise Exception("Movie with this IMDb ID already exists")
+        
         movie_dict["movie_id"] = str(uuid.uuid4())
 
         await db.movies.insert_one(movie_dict)

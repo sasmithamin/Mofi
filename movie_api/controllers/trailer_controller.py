@@ -1,8 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from typing import Optional
-from services.trailer_service import TrailerService
-from utils.cloudinary import upload_image, upload_video
-from schemas import TrailerCreate, TrailerUpdate, Trailer
+from typing import Optional, List
+from movie_api.services.trailer_service import TrailerService
+from movie_api.utils.cloudinary import upload_image, upload_video
+from movie_api.schemas import TrailerCreate, TrailerUpdate, Trailer
 
 router = APIRouter(prefix="/trailers", tags=["Trailers"])
 
@@ -38,6 +38,11 @@ async def get_one(trailer_id: str):
     if not trailer:
         raise HTTPException(status_code=404, detail="Trailer not found")
     return trailer
+
+@router.get("/movie/{movie_id}", response_model=List[Trailer])
+async def get_trailers_by_movie(movie_id: str):
+    trailers = await TrailerService.get_trailers_by_movie_id(movie_id)
+    return trailers
 
 
 @router.put("/{trailer_id}", response_model=dict)

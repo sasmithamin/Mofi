@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from utils.cloudinary import cloudinary
-from controllers.movie_controller import router as movie_router
-from controllers.trailer_controller import router as trailer_router
+from movie_api.utils.cloudinary import cloudinary
+from movie_api.controllers.movie_controller import router as movie_router
+from movie_api.controllers.trailer_controller import router as trailer_router
 
 load_dotenv()
 
