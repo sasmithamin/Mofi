@@ -1,4 +1,5 @@
 from movie_api.db.mongo import db
+from movie_api.db.mongo import movies_collection
 import uuid
 from movie_api.schemas import MovieCreate, MovieUpdate
 from typing import Optional
@@ -93,4 +94,43 @@ class MovieService:
         async for movie in db.movies.find({"user_id": user_id}):
             movies.append(serialize_movie(movie))
         return movies
+    
+    @staticmethod
+    async def update_movie_rating(
+        movie_id: str,
+        stars: int,
+        is_new_rating: bool,
+        old_stars: int | None = None
+    ):
+        movie = await movies_collection.find_one({"movie_id": movie_id})
+
+        if not movie:
+            raise Exception("Movie not found")
+
+        rate = movie.get("rate")
+
+        # ✅ FORCE SAFE INITIALIZATION
+        if not rate or rate.get("rate_count", 0) < 0:
+            rate = {
+                "rate_vote": 0,
+                "rate_count": 0,
+                "rate": 0.0
+            }
+
+        if is_new_rating:
+            rate["rate_vote"] += stars
+            rate["rate_count"] += 1
+        else:
+            if old_stars is not None:
+                rate["rate_vote"] = rate["rate_vote"] - old_stars + stars
+
+        # ✅ SAFE AVERAGE CALCULATION
+        rate["rate"] = round(
+            rate["rate_vote"] / rate["rate_count"], 2
+        ) if rate["rate_count"] > 0 else 0
+
+        await movies_collection.update_one(
+            {"movie_id": movie_id},
+            {"$set": {"rate": rate}}
+        )
 
