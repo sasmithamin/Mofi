@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from datetime import datetime
 
 class MovieBase(BaseModel):
     imdbID: str
@@ -9,7 +10,7 @@ class MovieBase(BaseModel):
     directors: List[str]
     writers: List[str]
     genres: List[str]
-    release_date: int
+    release_date: datetime
     duration: str
 
 class MovieCreate(MovieBase):
@@ -25,7 +26,7 @@ class MovieUpdate(BaseModel):
     directors: Optional[List[str]] = None
     writers: Optional[List[str]] = None
     genres: Optional[List[str]] = None
-    release_date: Optional[int] = None
+    release_date: Optional[datetime] = None
     duration: Optional[str] = None
     user_id: Optional[str] = None
     image1: Optional[str] = None

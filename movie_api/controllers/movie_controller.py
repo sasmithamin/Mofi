@@ -3,6 +3,7 @@ from movie_api.services.movie_service import MovieService
 from movie_api.utils.cloudinary import upload_image
 from movie_api.schemas import MovieCreate, MovieUpdate
 from typing import List, Optional
+from datetime import datetime
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ async def create_movie(
     directors: str = Form(...),
     writers: str = Form(...),
     genres: str = Form(...),
-    release_date: int = Form(...),
+    release_date: datetime = Form(...),
     duration: str = Form(...),
     image1: UploadFile = File(...),
     image2: UploadFile = File(...)

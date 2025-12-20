@@ -1,67 +1,90 @@
 from fastapi import APIRouter, HTTPException, Form
-from ratings_api.db.mongo import ratings_collection
-from ratings_api.schemas.rating_schema import RatingCreate
-from movie_api.services.movie_service import MovieService
+from datetime import datetime, timezone
+from ratings_api.db.mongo import pre_ratings_collection, post_ratings_collection, movies_collection
 
 router = APIRouter()
 
 @router.post("/ratings")
-async def add_rating(
+async def rate_movie(
     user_id: str = Form(...),
     movie_id: str = Form(...),
     stars: int = Form(...)
 ):
-    try:
-        if stars < 1 or stars > 5:
-            raise HTTPException(status_code=400, detail="Stars must be between 1 and 5")
+    # Validate stars
+    if stars < 1 or stars > 5:
+        raise HTTPException(status_code=400, detail="Stars must be between 1 and 5")
 
-        user_ratings = await ratings_collection.find_one({"user_id": user_id})
+    # Fetch the movie
+    movie = await movies_collection.find_one({"movie_id": movie_id})
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
 
-        is_new_rating = True
-        old_stars = None
+    # Current UTC time (timezone-aware)
 
-        if user_ratings:
-            for rating in user_ratings.get("ratings", []):
-                if rating["movie_id"] == movie_id:
-                    is_new_rating = False
-                    old_stars = rating["stars"]
-                    break
+    #now = datetime(2025, 12, 31, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    release_date_raw = movie["release_date"]  # must be timezone-aware
 
-        # --- Save user rating ---
-        if is_new_rating:
-            if user_ratings:
-                await ratings_collection.update_one(
-                    {"user_id": user_id},
-                    {"$push": {"ratings": {"movie_id": movie_id, "stars": stars}}}
-                )
-            else:
-                await ratings_collection.insert_one({
-                    "user_id": user_id,
-                    "ratings": [{"movie_id": movie_id, "stars": stars}]
-                })
-        else:
-            await ratings_collection.update_one(
-                {"user_id": user_id, "ratings.movie_id": movie_id},
-                {"$set": {"ratings.$.stars": stars}}
-            )
-
-        # ⭐ Update movie rating (single source of truth)
-        await MovieService.update_movie_rating(
-            movie_id=movie_id,
-            stars=stars,
-            old_stars=old_stars,
-            is_new_rating=is_new_rating
+    # If release_date is STRING → convert to datetime
+    if isinstance(release_date_raw, str):
+        release_date = datetime.fromisoformat(
+        release_date_raw.replace("Z", "+00:00")
         )
+    else:
+        release_date = release_date_raw
 
-        return {
-            "message": "Rating saved",
-            "is_new_rating": is_new_rating,
-            "old_stars": old_stars,
-            "new_stars": stars
+    # Force timezone awareness (safety)
+    if release_date.tzinfo is None:
+        release_date = release_date.replace(tzinfo=timezone.utc)
+
+    # Determine pre or post rating
+    if now < release_date:
+        rating_type = "pre"
+        ratings_collection = pre_ratings_collection
+        rate_key = "rate.pre"
+    else:
+        rating_type = "post"
+        ratings_collection = post_ratings_collection
+        rate_key = "rate.post"
+
+    # Insert rating (no unique constraint; same user can rate multiple times for now)
+    await ratings_collection.insert_one({
+        "user_id": user_id,
+        "movie_id": movie_id,
+        "stars": stars,
+        "rated_at": now,
+        "rate_type": rating_type
+    })
+
+    # Update movie summary: increment vote sum and count
+    await movies_collection.update_one(
+        {"movie_id": movie_id},
+        {
+            "$inc": {
+                f"{rate_key}.rate_vote": stars,
+                f"{rate_key}.rate_count": 1
+            }
         }
+    )
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Recalculate average
+    movie = await movies_collection.find_one({"movie_id": movie_id})
+    rate_data = movie["rate"][rating_type]
+    new_rate = round(rate_data["rate_vote"] / rate_data["rate_count"], 2) if rate_data["rate_count"] > 0 else 0
 
+    await movies_collection.update_one(
+        {"movie_id": movie_id},
+        {
+            "$set": {f"{rate_key}.rate": new_rate}
+        }
+    )
+
+    return {
+        "message": f"{rating_type.capitalize()} rating saved successfully",
+        "stars": stars,
+        "rate_summary": {
+            "rate_vote": rate_data["rate_vote"],
+            "rate_count": rate_data["rate_count"],
+            "rate": new_rate
+        }
+    }

@@ -7,10 +7,10 @@ load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
 DB_NAME = os.getenv("MONGO_DB_NAME")
 
-if not MONGO_URI or not DB_NAME:
-    raise Exception("MONGO_URI or MONGO_DB_NAME missing")
 
 client = AsyncIOMotorClient(MONGO_URI)
 db = client[DB_NAME]
 
-ratings_collection = db["ratings"]
+movies_collection = db["movies"]
+pre_ratings_collection = db["pre_ratings"]
+post_ratings_collection = db["post_ratings"]

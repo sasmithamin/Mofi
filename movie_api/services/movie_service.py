@@ -37,6 +37,19 @@ class MovieService:
         
         movie_dict["movie_id"] = str(uuid.uuid4())
 
+        movie_dict["rate"] = {
+            "pre": {
+                "rate_vote": 0,
+                "rate_count": 0,
+                "rate": 0
+            },
+            "post": {
+                "rate_vote": 0,
+                "rate_count": 0,
+                "rate": 0
+            }
+        }
+
         await db.movies.insert_one(movie_dict)
 
         return serialize_movie(movie_dict)
