@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Dict, Optional, List
 from datetime import datetime
 
 class MovieBase(BaseModel):
@@ -37,6 +37,9 @@ class Movie(MovieBase):
     user_id: str
     image1: str
     image2: str
+
+    rate: Dict[str, float] = {}
+    reactions: Dict[str, int] = {}
 
     class Config:
         orm_mode = True

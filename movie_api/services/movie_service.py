@@ -21,6 +21,8 @@ def serialize_movie(movie):
         "duration": movie["duration"],
         "image1": movie["image1"],
         "image2": movie["image2"],
+        "rate": movie.get("rate", {}),
+        "reactions": movie.get("reactions", {}),
     }
 
 
