@@ -124,7 +124,7 @@ class MovieService:
 
         rate = movie.get("rate")
 
-        # ✅ FORCE SAFE INITIALIZATION
+        #  FORCE SAFE INITIALIZATION
         if not rate or rate.get("rate_count", 0) < 0:
             rate = {
                 "rate_vote": 0,
@@ -139,7 +139,7 @@ class MovieService:
             if old_stars is not None:
                 rate["rate_vote"] = rate["rate_vote"] - old_stars + stars
 
-        # ✅ SAFE AVERAGE CALCULATION
+        #  SAFE AVERAGE CALCULATION
         rate["rate"] = round(
             rate["rate_vote"] / rate["rate_count"], 2
         ) if rate["rate_count"] > 0 else 0
@@ -148,4 +148,36 @@ class MovieService:
             {"movie_id": movie_id},
             {"$set": {"rate": rate}}
         )
+
+    
+    @staticmethod
+    async def get_full_movie_details(movie_id: str) -> dict:
+        movie = await db.movies.find_one({"movie_id": movie_id})
+        if not movie:
+            return None
+
+        ratings = await db.ratings.find_one({"movie_id": movie_id})
+        reactions = await db.reactions.find_one({"movie_id": movie_id})
+
+        trailers = []
+        async for trailer in db.trailers.find({"movie_id": movie_id}):
+            trailer["trailer_id"] = str(trailer["_id"])
+            trailer.pop("_id", None)
+            trailers.append(trailer)
+
+        stream = await db.streams.find_one({"movie_id": movie_id})
+
+        # remove Mongo _id safely
+        movie.pop("_id", None)
+        if ratings: ratings.pop("_id", None)
+        if reactions: reactions.pop("_id", None)
+        if stream: stream.pop("_id", None)
+
+        return {
+            "movie": movie,
+            "ratings": ratings or {},
+            "reactions": reactions or {},
+            "trailers": trailers,
+            "stream": stream or {}
+        }
 
