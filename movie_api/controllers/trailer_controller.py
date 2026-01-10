@@ -1,5 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Path
 from typing import Optional, List
+from uuid import uuid4
+from movie_api.db.mongo import db
+from datetime import datetime
 from movie_api.services.trailer_service import TrailerService
 from movie_api.utils.cloudinary import upload_image, upload_video
 from movie_api.schemas import TrailerCreate, TrailerUpdate, Trailer
@@ -76,3 +79,40 @@ async def delete_trailer(trailer_id: str):
     if not deleted:
         raise HTTPException(status_code=404, detail="Trailer not found")
     return {"message": "Trailer deleted successfully"}
+
+
+@router.post("/{movie_id}/production-images")
+async def add_trailer_production_image(
+    movie_id: str = Path(..., description="Movie ID"),
+    image: UploadFile = File(...),
+    title: str = Form(...),
+    description: str = Form(...)
+):
+    # 1. Validate movie exists
+    movie = await db.movies.find_one({"movie_id": movie_id})
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+
+    # 2. Upload image to Cloudinary
+    image_url = upload_image(
+        image,
+        folder=f"movie_db/trailers/{movie_id}/production_images"
+    )
+
+    # 3. Save metadata in MongoDB
+    image_doc = {
+        "image_id": str(uuid4()),
+        "movie_id": movie_id,
+        "title": title,
+        "description": description,
+        "image_url": image_url,
+        "created_at": datetime.utcnow()
+    }
+
+    await db.trailer_production_images.insert_one(image_doc)
+    image_doc.pop("_id", None)
+
+    return {
+        "message": "Trailer production image uploaded successfully",
+        "data": image_doc
+    }

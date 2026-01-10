@@ -40,3 +40,24 @@ async def search_by_type(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/search/by-name-and-type")
+async def search_by_name_and_type(
+    moviename: str = Query(..., description="Movie name keyword"),
+    type: str = Query(..., description="movie | series | anime")
+):
+    try:
+        query = {
+            "title": {"$regex": moviename, "$options": "i"},
+            "type": type.lower()
+        }
+
+        results = await movies_collection.find(query).to_list(100)
+
+        return {
+            "count": len(results),
+            "results": serialize_mongo(results)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
