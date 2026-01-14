@@ -48,6 +48,24 @@ async def create_movie(
 async def get_all_movies():
     return await MovieService.get_all_movies()
 
+@router.get("/coming-soon")
+async def get_coming_soon():
+    movies = await MovieService.get_coming_soon_movies()
+    return {
+        "count": len(movies),
+        "results": movies
+    }
+
+@router.get("/released")
+async def get_released_movies():
+    movies = await MovieService.get_released_movies()
+
+    return {
+        "count": len(movies),
+        "results": movies
+    }
+
+
 @router.get("/{movie_id}", response_model=dict)
 async def get_movie(movie_id: str):
     movie = await MovieService.get_movie(movie_id)
@@ -104,6 +122,7 @@ async def get_movies_by_user(user_id: str):
     return await MovieService.get_movies_by_user(user_id)
 
 
+
 @router.get("/{movie_id}/full", response_model=dict)
 async def get_full_movie(movie_id: str):
     data = await MovieService.get_full_movie_details(movie_id)
@@ -112,3 +131,6 @@ async def get_full_movie(movie_id: str):
         raise HTTPException(status_code=404, detail="Movie not found")
 
     return data
+
+
+

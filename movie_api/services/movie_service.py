@@ -4,6 +4,7 @@ import uuid
 from movie_api.schemas import MovieCreate, MovieUpdate
 from typing import Optional
 from bson import ObjectId
+from datetime import datetime, timedelta
 
 
 def serialize_movie(movie):
@@ -180,4 +181,38 @@ class MovieService:
             "trailers": trailers,
             "stream": stream or {}
         }
+    
+    @staticmethod
+    async def get_coming_soon_movies() -> list:
+        movies = []
 
+        async for movie in db.movies.find({}):
+            release_date = movie.get("release_date")
+
+            if not release_date:
+                continue
+
+        # coming soon window = release_date → release_date + 30 days
+        coming_soon_until = release_date + timedelta(days=30)
+
+        movie["coming_soon"] = {
+            "from": release_date,
+            "to": coming_soon_until
+        }
+
+        movies.append(serialize_movie(movie))
+
+        return movies
+    
+    @staticmethod
+    async def get_released_movies() -> list:
+        today = datetime.utcnow()
+
+        movies = []
+
+        async for movie in db.movies.find({
+            "release_date": {"$lte": today}
+        }):
+            movies.append(serialize_movie(movie))
+
+        return movies

@@ -16,8 +16,8 @@ async def add_favorite(
 
 
 @router.get("/favorites/{user_id}")
-async def get_favorites(user_id: str):
-    favorites = await ActivitiesService.get_favorites(user_id)
+async def get_favourites(user_id: str):
+    favorites = await ActivitiesService.get_favourites(user_id)
     return {"user_id": user_id, "favorites": favorites}
 
 
