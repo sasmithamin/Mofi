@@ -49,26 +49,30 @@ async def delete_stream(stream_id: str):
         raise HTTPException(status_code=500, detail=str(e))
     
     
-@router.get("/streams/validate/{stream_key}")
-async def validate_stream_key(stream_key: str):
-    try:
-        result = await StreamService.validate_stream_key(stream_key)
+@router.post("/stream/start")
+async def start_stream(stream_key: str = Form(...)):
+    result = await StreamService.start_stream(stream_key)
 
-        if not result:
-            return {
-                "valid": False,
-                "message": "Invalid stream key"
-            }
+    if not result:
+        raise HTTPException(status_code=404, detail="Invalid stream key")
 
-        return {
-            "valid": True,
-            "message": "Stream key validated",
-            "stream_id": result["stream_id"],
-            "is_live": result["is_live"]
-        }
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return result
+
+
+@router.post("/stream/stop")
+async def stop_stream(stream_key: str = Form(...)):
+    result = await StreamService.stop_stream(stream_key)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Invalid stream key")
+
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    return result
     
 
 @router.get("/streams/active")

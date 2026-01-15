@@ -46,23 +46,86 @@ class StreamService:
         return result.deleted_count == 1
     
     @staticmethod
-    async def validate_stream_key(stream_key: str):
-        # Find stream by stream_key
+    async def start_stream(stream_key: str):
         stream = await streams_collection.find_one(
             {"stream_key": stream_key}
         )
 
         if not stream:
-            return None
+            return {
+                "error": "Invalid stream key"
+            }
 
-        # Update is_live to true
+        if stream.get("is_live") is True:
+            return {
+                "message": "Stream is already live",
+                "is_live": True
+            }
+
         await streams_collection.update_one(
             {"stream_key": stream_key},
-            {"$set": {"is_live": True}}
+            {
+                "$set": {
+                    "is_live": True,
+                    "started_at": datetime.utcnow(),
+                    "ended_at": None
+                }
+            }
         )
 
-        # Return minimal info
         return {
-            "stream_id": stream["stream_id"],
-            "is_live": True
+            "message": "Stream is now live",
+            "is_live": True,
+            "movie_id": stream["movie_id"]
         }
+
+    @staticmethod
+    async def stop_stream(stream_key: str):
+        stream = await streams_collection.find_one(
+            {"stream_key": stream_key}
+        )
+
+        if not stream:
+            return {
+                "error": "Invalid stream key"
+            }
+
+        if stream.get("is_live") is False:
+            return {
+                "message": "Stream is already stopped",
+                "is_live": False
+            }
+
+        await streams_collection.update_one(
+            {"stream_key": stream_key},
+            {
+                "$set": {
+                    "is_live": False,
+                    "ended_at": datetime.utcnow()
+                }
+            }
+        )
+
+        return {
+            "message": "Stream stopped successfully",
+            "is_live": False,
+            "movie_id": stream["movie_id"]
+        }
+
+    @staticmethod
+    async def get_stream_status(movie_id: str):
+        stream = await streams_collection.find_one(
+            {"movie_id": movie_id}
+        )
+
+        if not stream:
+            return None
+
+        return {
+            "movie_id": movie_id,
+            "is_live": stream.get("is_live", False),
+            "started_at": stream.get("started_at"),
+            "ended_at": stream.get("ended_at")
+        }
+    
+    
