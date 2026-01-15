@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from stream_api.db.mongo import streams_collection
 from stream_api.utils.serializer import serialize_mongo
+from stream_api.services.websocket_manager import manager
 
 
 class StreamService:
@@ -73,11 +74,20 @@ class StreamService:
             }
         )
 
+        await manager.broadcast({
+            "type": "STREAM_STARTED",
+            "stream_id": stream["stream_id"],
+            "movie_id": stream["movie_id"],
+            "message": f" Stream started for {stream['movie_id']}"
+        })
+
         return {
             "message": "Stream is now live",
             "is_live": True,
             "movie_id": stream["movie_id"]
         }
+    
+    
 
     @staticmethod
     async def stop_stream(stream_key: str):
@@ -105,6 +115,13 @@ class StreamService:
                 }
             }
         )
+
+        await manager.broadcast({
+            "type": "STREAM_STOPPED",
+            "stream_id": stream["stream_id"],
+            "movie_id": stream["movie_id"],
+            "message": f" Stream stopped for {stream['movie_id']}"
+        })
 
         return {
             "message": "Stream stopped successfully",

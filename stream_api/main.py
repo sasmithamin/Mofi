@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from stream_api.controllers.stream_controller import router as stream_router
+from stream_api.controllers.websocket_routes import router as websocket_router
 
 app = FastAPI(
     title="Live Stream API",
@@ -17,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(stream_router)
+app.include_router(websocket_router)
 
 @app.get("/")
 def home():
