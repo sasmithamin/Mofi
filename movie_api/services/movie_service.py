@@ -216,3 +216,45 @@ class MovieService:
             movies.append(serialize_movie(movie))
 
         return movies
+    
+    @staticmethod
+    async def get_trending_movies(limit: int = 10):
+        """
+        Trending movies based on highest PRE rating count
+        """
+
+        cursor = (
+            movies_collection
+            .find(
+                {"rate.pre.rate_count": {"$gt": 0}},
+                {
+                    "_id": 0,
+                    "movie_id": 1,
+                    "title": 1,
+                    "description": 1,
+                    "image1": 1,
+                    "image2": 1,
+                    "release_date": 1,
+                    "rate.pre.rate_count": 1,
+                    "rate.pre.rate": 1
+                }
+            )
+            .sort("rate.pre.rate_count", -1)
+            .limit(limit)
+        )
+
+        movies = await cursor.to_list(length=limit)
+
+        return [
+            {
+                "movie_id": m["movie_id"],
+                "title": m["title"],
+                "description": m.get("description"),
+                "image1": m.get("image1"),
+                "image2": m.get("image2"),
+                "release_date": m.get("release_date"),
+                "pre_rate_count": m["rate"]["pre"]["rate_count"],
+                "pre_rate_avg": m["rate"]["pre"].get("rate", 0)
+            }
+            for m in movies
+        ]
