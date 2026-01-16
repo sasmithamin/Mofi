@@ -3,6 +3,7 @@ from datetime import datetime
 from stream_api.db.mongo import streams_collection
 from stream_api.utils.serializer import serialize_mongo
 from stream_api.services.websocket_manager import manager
+from typing import Optional
 
 
 class StreamService:
@@ -144,5 +145,46 @@ class StreamService:
             "started_at": stream.get("started_at"),
             "ended_at": stream.get("ended_at")
         }
+    
+    @staticmethod
+    async def update_stream(
+        stream_id: str,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        date_time: Optional[str] = None
+    ):
+        update_data = {}
+
+        if title:
+            update_data["title"] = title
+
+        if description:
+            update_data["description"] = description
+
+        if date_time:
+            update_data["date_time"] = date_time
+
+        if not update_data:
+            return None
+
+        result = await streams_collection.update_one(
+            {"stream_id": stream_id},
+            {"$set": update_data}
+        )
+
+        if result.matched_count == 0:
+            return None
+
+        stream = await streams_collection.find_one({"stream_id": stream_id})
+
+        await manager.broadcast({
+            "type": "STREAM_UPDATED",
+            "stream_id": stream["stream_id"],
+            "movie_id": stream["movie_id"],
+            "message": "Stream details updated"
+        })
+
+        return serialize_mongo(stream)
+
     
     

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Form
 from stream_api.services.stream_service import StreamService
 from stream_api.db.mongo import streams_collection
+from typing import Optional
 from stream_api.utils.serializer import serialize_mongo
 
 router = APIRouter(prefix="/streams", tags=["Streams"])
@@ -80,4 +81,26 @@ async def get_active_streams():
     streams = await streams_collection.find({"is_live": True}).to_list(100)
     safe_streams = serialize_mongo(streams)  
     return {"count": len(safe_streams), "results": safe_streams}
+
+@router.put("/streams/{stream_id}")
+async def update_stream(
+    stream_id: str,
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    date_time: Optional[str] = Form(None)
+):
+    updated_stream = await StreamService.update_stream(
+        stream_id=stream_id,
+        title=title,
+        description=description,
+        date_time=date_time
+    )
+
+    if not updated_stream:
+        raise HTTPException(status_code=404, detail="Stream not found or no data to update")
+
+    return {
+        "message": "Stream updated successfully",
+        "stream": updated_stream
+    }
 
