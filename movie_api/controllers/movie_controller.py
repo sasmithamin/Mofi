@@ -74,6 +74,15 @@ async def get_trending_movies(limit: int = 10):
         "results": movies
     }
 
+@router.get("/popular")
+async def get_popular_movies(limit: int = 10):
+    movies = await MovieService.get_popular_movies(limit)
+
+    return {
+        "count": len(movies),
+        "results": movies
+    }
+
 
 @router.get("/{movie_id}", response_model=dict)
 async def get_movie(movie_id: str):
@@ -140,6 +149,8 @@ async def get_full_movie(movie_id: str):
         raise HTTPException(status_code=404, detail="Movie not found")
 
     return data
+
+
 
 
 

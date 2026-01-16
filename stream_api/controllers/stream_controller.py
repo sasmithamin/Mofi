@@ -1,8 +1,11 @@
 from fastapi import APIRouter, HTTPException, Form
 from stream_api.services.stream_service import StreamService
 from stream_api.db.mongo import streams_collection
+from movie_api.db.mongo import movies_collection
 from typing import Optional
 from stream_api.utils.serializer import serialize_mongo
+
+
 
 router = APIRouter(prefix="/streams", tags=["Streams"])
 
@@ -74,13 +77,42 @@ async def stop_stream(stream_key: str = Form(...)):
         raise HTTPException(status_code=400, detail=result["error"])
 
     return result
-    
 
+@router.get("/streams/active")
+async def get_active_streams():
+    streams = await streams_collection.find(
+        {"is_live": True}
+    ).to_list(100)
+
+    if not streams:
+        return {"count": 0, "results": []}
+
+    enriched_streams = []
+
+    for stream in streams:
+        movie = await movies_collection.find_one(
+            {"movie_id": stream["movie_id"]},
+            {"_id": 0, "title": 1, "image2": 1}
+        )
+
+        enriched_streams.append({
+            **serialize_mongo(stream),
+            "movie_title": movie["title"] if movie else None,
+            "movie_image2": movie["image2"] if movie else None
+        })
+
+    return {
+        "count": len(enriched_streams),
+        "results": enriched_streams
+    }
+    
+"""
 @router.get("/streams/active")
 async def get_active_streams():
     streams = await streams_collection.find({"is_live": True}).to_list(100)
     safe_streams = serialize_mongo(streams)  
     return {"count": len(safe_streams), "results": safe_streams}
+    """
 
 @router.put("/streams/{stream_id}")
 async def update_stream(
@@ -103,4 +135,20 @@ async def update_stream(
         "message": "Stream updated successfully",
         "stream": updated_stream
     }
+
+@router.get("/{stream_id}")
+async def get_stream_by_id(stream_id: str):
+    try:
+        stream = await StreamService.get_stream_by_id(stream_id)
+
+        if not stream:
+            raise HTTPException(status_code=404, detail="Stream not found")
+
+        return stream
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 

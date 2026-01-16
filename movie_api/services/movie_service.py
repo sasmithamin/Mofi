@@ -258,3 +258,47 @@ class MovieService:
             }
             for m in movies
         ]
+    
+    @staticmethod
+    async def get_popular_movies(limit: int = 10):
+        """
+        Popular movies / series / anime based on highest POST rating count
+        """
+
+        cursor = (
+            db.movies
+            .find(
+                {"rate.post.rate_count": {"$gt": 0}},
+                {
+                    "_id": 0,
+                    "movie_id": 1,
+                    "title": 1,
+                    "description": 1,
+                    "image1": 1,
+                    "image2": 1,
+                    "release_date": 1,
+                    "type": 1,
+                    "rate.post.rate_count": 1,
+                    "rate.post.rate": 1
+                }
+            )
+            .sort("rate.post.rate_count", -1)
+            .limit(limit)
+        )
+
+        movies = await cursor.to_list(length=limit)
+
+        return [
+            {
+                "movie_id": m["movie_id"],
+                "type": m.get("type"),
+                "title": m.get("title"),
+                "description": m.get("description"),
+                "image1": m.get("image1"),
+                "image2": m.get("image2"),
+                "release_date": m.get("release_date"),
+                "post_rate_count": m["rate"]["post"]["rate_count"],
+                "post_rate_avg": m["rate"]["post"].get("rate", 0)
+            }
+            for m in movies
+        ]

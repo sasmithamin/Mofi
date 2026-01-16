@@ -185,6 +185,18 @@ class StreamService:
         })
 
         return serialize_mongo(stream)
+    
+    @staticmethod
+    async def get_stream_by_id(stream_id: str):
+        stream = await streams_collection.find_one(
+            {"stream_id": stream_id}
+        )
+
+        if not stream:
+            return None
+
+        return serialize_mongo(stream)
+
 
     
     
