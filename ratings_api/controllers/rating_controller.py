@@ -4,6 +4,25 @@ from ratings_api.db.mongo import pre_ratings_collection, post_ratings_collection
 
 router = APIRouter()
 
+PRE_BASELINE = 3.0
+PRE_MIN_VOTES = 20
+
+POST_BASELINE = 3.5
+POST_MIN_VOTES = 50
+
+
+def bayesian_rating(rate_vote: int, rate_count: int, baseline: float, min_votes: int) -> float:
+    if rate_count == 0:
+        return baseline
+
+    raw_avg = rate_vote / rate_count
+    weighted_rate = (
+        (rate_count / (rate_count + min_votes)) * raw_avg
+        + (min_votes / (rate_count + min_votes)) * baseline
+    )
+    return round(weighted_rate, 2)
+
+
 @router.post("/ratings")
 async def rate_movie(
     user_id: str = Form(...),
@@ -21,9 +40,7 @@ async def rate_movie(
 
     release_date_raw = movie["release_date"]
     if isinstance(release_date_raw, str):
-        release_date = datetime.fromisoformat(
-            release_date_raw.replace("Z", "+00:00")
-        )
+        release_date = datetime.fromisoformat(release_date_raw.replace("Z", "+00:00"))
     else:
         release_date = release_date_raw
 
@@ -34,10 +51,14 @@ async def rate_movie(
         rating_type = "pre"
         ratings_collection = pre_ratings_collection
         rate_key = "rate.pre"
+        baseline = PRE_BASELINE
+        min_votes = PRE_MIN_VOTES
     else:
         rating_type = "post"
         ratings_collection = post_ratings_collection
         rate_key = "rate.post"
+        baseline = POST_BASELINE
+        min_votes = POST_MIN_VOTES
 
     # 🔹 Check existing rating
     existing_user_rating = await ratings_collection.find_one(
@@ -66,7 +87,7 @@ async def rate_movie(
         upsert=True
     )
 
-    # 🔹 Update movie summary correctly
+    # 🔹 Update vote sums
     if old_stars is not None:
         inc_ops = {f"{rate_key}.rate_vote": stars - old_stars}
     else:
@@ -80,13 +101,15 @@ async def rate_movie(
         {"$inc": inc_ops}
     )
 
-    # 🔹 Recalculate average
+    # 🔹 Recalculate IMDb-style rating
     movie = await movies_collection.find_one({"movie_id": movie_id})
     rate_data = movie["rate"][rating_type]
 
-    new_rate = (
-        round(rate_data["rate_vote"] / rate_data["rate_count"], 2)
-        if rate_data["rate_count"] > 0 else 0
+    new_rate = bayesian_rating(
+        rate_vote=rate_data["rate_vote"],
+        rate_count=rate_data["rate_count"],
+        baseline=baseline,
+        min_votes=min_votes
     )
 
     await movies_collection.update_one(
@@ -103,4 +126,3 @@ async def rate_movie(
             "rate": new_rate
         }
     }
-
